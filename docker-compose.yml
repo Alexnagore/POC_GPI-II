@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: proyecto_web
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    volumes:
+      - .:/var/www/html
