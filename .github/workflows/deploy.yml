@@ -24,7 +24,7 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Análisis de Código Estático y Linting
-        run: ./vendor/bin/phpcs --standard=PSR12 index.php || echo "Warnings detectados (No bloqueante)"
+        run: ./vendor/bin/phpcs --standard=PSR12 index.php
 
       - name: Ejecutar Pruebas Unitarias
         run: ./vendor/bin/phpunit tests
