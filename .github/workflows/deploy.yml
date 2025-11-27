@@ -14,24 +14,17 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar entorno
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Instalar dependencias
+      - name: Validar sintaxis PHP
         run: |
-          npm init -y
-          npm install
-
-      - name: Ejecutar tests
-        run: echo "Tests pasados correctamente"
+          # Buscamos archivos .php y verificamos que no tengan errores de sintaxis
+          find . -name "*.php" -print0 | xargs -0 -n1 php -l
 
       - name: Construir imagen Docker
         run: docker build . -t mi-app-poc:latest
 
       - name: Desplegar aplicación
         run: |
-          echo "Desplegando la aplicación en entorno de pruebas..."
+          echo "Iniciando despliegue en entorno de pruebas..."
+          docker run -d -p 8080:80 mi-app-poc:latest
           sleep 5
-          echo "Despliegue completado con éxito."
+          echo "Despliegue completado con éxito. Contenedor activo."
