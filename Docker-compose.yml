@@ -1,0 +1,49 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: ag-mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: agprueba
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  auth-server:
+    build: ./authorization-server
+    container_name: auth-server
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/agprueba?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+  resource-server:
+    build: ./resource-server
+    container_name: resource-server
+    depends_on:
+      auth-server:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/agprueba?createDatabaseIfNotExist=true
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
+
+  frontend:
+    build: ./ag-prueba-front
+    container_name: angular-front
+    ports:
+      - "4200:80"
+    depends_on:
+      - resource-server
