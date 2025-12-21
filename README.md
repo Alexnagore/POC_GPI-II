@@ -1,64 +1,103 @@
-# 🧱 POC_GPI-II
 
-Proyecto de prueba para la configuración e integración continua con **Docker** y **GitHub Actions**.  
-Este entorno actúa como **fuente de verdad** del sistema, garantizando coherencia, reproducibilidad y estabilidad entre los entornos de desarrollo, prueba y despliegue.
+# Proyecto de Prueba OAuth2 con Spring Boot, Angular y Google Sign-In
 
----
+Este proyecto de prueba demuestra la implementación de autenticación y autorización utilizando OAuth2 Server Authorization con generación de tokens, así como la integración con Google Sign-In. El proyecto utiliza las siguientes tecnologías:
 
-## 🚀 Ejecución local
+- **Spring Boot**: Para implementar el servidor de autorización y el recurso.
+- **OpenID Connect**: Para autenticación y autorización basada en identidad.
+- **OAuth2 Resource Server**: Para proteger recursos y validar tokens.
+- **Angular**: Para el frontend de la aplicación.
+- **MySQL**: Para la persistencia de datos.
 
-1. **Clonar el repositorio**
-   ```bash
-   git clone https://github.com/tu-usuario/POC_GPI-II.git
-   cd POC_GPI-II
+## Características
 
-2. **Construir y ejecutar el contenedor**
-   ```bash
-   docker-compose up --build
+- Autenticación y autorización utilizando OAuth2.
+- Generación de tokens JWT.
+- Inicio de sesión con Google.
+- Pantalla de consentimiento de permisos de Google.
+- Persistencia en una base de datos MySQL.
 
+## Requisitos
 
-3. **Abrir el navegador en**
-👉 [http://localhost:8080](http://localhost:8080)
+- Java 17 o superior.
+- Maven 3.6 o superior.
+- Node.js 18 o superior.
+- MySQL 8 o superior.
+- Google Developer Account (para configurar el inicio de sesión con Google).
 
-Si todo está correcto, deberías ver el mensaje:
+## Configuración
 
-> **Proyecto POC_GPI-II funcionando en Docker 🚀**
+### Configuración del Servidor Spring Boot
 
----
+1. Clona el repositorio:
 
-## ⚙️ Estructura básica
-  ```bash
-  POC_GPI-II/
-  ├── Dockerfile
-  ├── docker-compose.yml
-  ├── .env
-  └── index.php
-```
+    ```bash
+    git clone https://github.com/antruigon/oauth2-springboot-angular-googlesignin-poc.git
+    cd oauth2-springboot-angular-googlesignin-poc
+    ```
 
-- **Dockerfile** → Define la imagen base (PHP + Apache).  
-- **docker-compose.yml** → Orquesta los servicios y puertos.  
-- **.env** → Centraliza las variables de entorno del sistema.  
-- **index.php** → Página principal del contenedor.
+2. Configura las propiedades de la base de datos en `src/main/resources/application.properties`:
 
----
+    ```properties
+    spring.datasource.url=jdbc:mysql://localhost:3306/tu_base_de_datos
+    spring.datasource.username=tu_usuario
+    spring.datasource.password=tu_contraseña
+    ```
 
-## 🧩 Integración continua (CI/CD)
+3. Configura las propiedades de OAuth2 y Google Sign-In en `src/main/resources/application.properties`:
 
-El proyecto incorpora un flujo de **Integración y Despliegue Continuo (CI/CD)** mediante **GitHub Actions**, que automatiza las siguientes fases:
+    ```properties
+    spring.security.oauth2.client.registration.google.client-id=TU_CLIENT_ID
+    spring.security.oauth2.client.registration.google.client-secret=TU_CLIENT_SECRET
+    spring.security.oauth2.client.registration.google.scope=profile,email
+    ```
 
-- Construcción de la imagen Docker.  
-- Ejecución de pruebas automáticas (simuladas).  
-- Validación del proceso de despliegue.  
+4. Ejecuta la aplicación Spring Boot:
+	1. Navega al directorio del Servidor de Autenticación:
 
-Esto garantiza un ciclo de entrega más rápido, controlado y alineado con los objetivos del proyecto definidos en el **OKR 2: Acelerar los ciclos de lanzamiento**.
+    ```bash
+    cd authorization-server
+    ```
+	2. Ejecuta el servidor con
+	```bash
+    ./mvn spring-boot:run
+    ```
 
----
+	3. Navega al directorio del Servidor de Recursos:
 
-## 🧠 Autoría
+    ```bash
+    cd resource-server
+    ```
+	4. Ejecuta el servidor con
+	```bash
+    ./mvnw spring-boot:run
+    ```
 
-Desarrollado por **Alex**, estudiante de Ingeniería Informática.  
-La redacción y estructuración del presente README se ha realizado con la colaboración de **ChatGPT**, utilizado como asistente técnico y de documentación.  
+### Configuración del Frontend Angular
 
-Este proyecto forma parte de las entregas prácticas de la asignatura **GPI-II**.
+1. Navega al directorio del frontend:
 
----
+    ```bash
+    cd ag-prueba-front
+    ```
+
+2. Instala las dependencias de Node.js:
+
+    ```bash
+    npm install
+    ```
+4. Ejecuta la aplicación Angular:
+
+    ```bash
+    ng serve
+    ```
+
+## Uso
+
+1. Abre tu navegador y dirígete a `http://localhost:4200`.
+2. Deberías ver un menú con la opción de inicio de sesión.
+3. Al acceder, deberías ver un menú con opciones para iniciar sesión con Google.
+4. Al iniciar sesión con Google, se mostrará la pantalla de consentimiento de permisos.
+5. Una vez autenticado, serás redirigido a la aplicación con acceso basado en los permisos otorgados y verás en el menú una opción nueva.
+
+La base de datos deberás de rellenarla. Hay endpoints para crear usuarios pero se puede rellenar manualmente. Los usuarios con el rol de "administrador" (ROLE_ADMIN) tendrán una opción más en el menú.
