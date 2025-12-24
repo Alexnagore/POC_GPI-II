@@ -1,20 +1,25 @@
 name: Test PR Age (2 min)
 on:
-  workflow_dispatch: # Para que puedas darle al botón "Run" y probarlo ya
+  workflow_dispatch: 
   schedule:
-    - cron: '*/5 * * * *' # Se ejecuta cada 5 minutos
+    - cron: '*/5 * * * *'
 
 permissions:
   pull-requests: write
+  contents: read # Añadido para que el checkout funcione correctamente
 
 jobs:
   check-and-comment:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # <--- ESTO ES LO QUE FALTABA
+
       - name: Check PRs and Comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Ahora 'gh' detectará automáticamente el repositorio gracias al checkout
           prs=$(gh pr list --state open --json number,createdAt)
           now=$(date +%s)
           
