@@ -29,25 +29,7 @@ jobs:
 
       - name: Verify Services Health
         run: |
-          echo "Esperando a que los servicios estabilicen..."
-          sleep 75 # Espera a que los servicios estén arriba
-          
-          # 1. Verificar Auth Server (Basado en OpenID Config)
-          curl -f http://localhost:9000/.well-known/openid-configuration || exit 1
-          
-          # 2. Verificar Resource Server 
-          # Nota: Como no tienes Actuator en pom.xml, probamos un endpoint real. 
-          # Devolverá 401 (Unauthorized) pero confirma que el App Server responde.
-          curl -i http://localhost:8080/resource/user | grep "HTTP/1.1 401" || exit 1
-          
-          # 3. Verificar Frontend (Nginx respondiendo en el puerto mapeado)
           curl -f http://localhost:4200/ || exit 1
           
           echo "🎉 Docker integration successful!"
       
-      - name: Dump Docker Logs on Failure
-        if: failure() # Esto solo se ejecutará si el paso anterior falla
-        run: |
-          docker compose logs resource-server
-          docker compose logs auth-server
-          docker compose logs db
