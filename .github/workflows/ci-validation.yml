@@ -29,6 +29,8 @@ jobs:
 
       - name: Verify Services Health
         run: |
+          echo "Esperando a que los contenedores estabilicen (60s)..."
+          sleep 60
           curl -f http://localhost:4200/ || exit 1
           
           echo "🎉 Docker integration successful!"
