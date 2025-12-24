@@ -30,7 +30,7 @@ jobs:
       - name: Verify Services Health
         run: |
           echo "Esperando a que los servicios estabilicen..."
-          sleep 40
+          sleep 75 # Espera a que los servicios estén arriba
           
           # 1. Verificar Auth Server (Basado en OpenID Config)
           curl -f http://localhost:9000/.well-known/openid-configuration || exit 1
@@ -44,3 +44,10 @@ jobs:
           curl -f http://localhost:4200/ || exit 1
           
           echo "🎉 Docker integration successful!"
+      
+      - name: Dump Docker Logs on Failure
+        if: failure() # Esto solo se ejecutará si el paso anterior falla
+        run: |
+          docker compose logs resource-server
+          docker compose logs auth-server
+          docker compose logs db

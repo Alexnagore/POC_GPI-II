@@ -35,6 +35,7 @@ services:
   resource-server:
     build: ./resource-server
     container_name: resource-server
+    restart: on-failure
     depends_on:
       auth-server:
         condition: service_started
