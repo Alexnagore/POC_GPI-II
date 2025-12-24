@@ -1,7 +1,7 @@
 name: CI/CD Pipeline - Project POC
 
 on:
-  push:
+  pull_request:
     branches: [ "main" ] # Se activa al mergear ramas a main
 
 jobs:
