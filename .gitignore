@@ -1,3 +1,4 @@
 .env
 .secrets
 repomix*
+actions-runner/
