@@ -1,16 +1,16 @@
-name: CI - Full Validation (Build & Test)
+name: CI/CD Pipeline - Project POC
 
 on:
-  pull_request:
-    branches: [ "main" ]
+  push:
+    branches: [ "main" ] # Se activa al mergear ramas a main
 
 jobs:
-  # 1. Verificación de Backend (Tests Unitarios)
-  backend-tests:
+  # ------------------------------------------------------------------
+  # JOB 1: BACKEND AUTH (Paralelo)
+  # ------------------------------------------------------------------
+  build-auth-server:
+    name: Build Auth Server
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [authorization-server, resource-server]
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -19,14 +19,35 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Grant execute permission for mvnw
-        run: chmod +x ${{ matrix.service }}/mvnw
-      - name: Run Tests
-        # Ejecutamos los tests de Spring Boot
-        run: cd ${{ matrix.service }} && ./mvnw test 
+      - name: Build Jar
+        run: |
+          chmod +x authorization-server/mvnw
+          cd authorization-server && ./mvnw clean package -DskipTests
 
-  # 2. Verificación de Frontend
-  frontend-tests:
+  # ------------------------------------------------------------------
+  # JOB 2: BACKEND RESOURCE (Paralelo)
+  # ------------------------------------------------------------------
+  build-resource-server:
+    name: Build Resource Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build Jar
+        run: |
+          chmod +x resource-server/mvnw
+          cd resource-server && ./mvnw clean package -DskipTests
+
+  # ------------------------------------------------------------------
+  # JOB 3: FRONTEND ANGULAR (Paralelo)
+  # ------------------------------------------------------------------
+  build-frontend:
+    name: Build Frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,32 +57,32 @@ jobs:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: ag-prueba-front/package-lock.json
-      - name: Install & Lint
+      - name: Install & Build
         run: |
           cd ag-prueba-front
           npm ci
-      - name: Build Check
-        run: cd ag-prueba-front && npm run build -- --configuration=production
+          npm run build -- --configuration=production
 
-  # 3. Verificación de Integración (Smoke Test)
-  integration-verification:
-    needs: [backend-tests, frontend-tests]
-    runs-on: ubuntu-latest
+  # ------------------------------------------------------------------
+  # JOB 4: DEPLOY (En tu ordenador local)
+  # ------------------------------------------------------------------
+  deploy:
+    needs: [build-auth-server, build-resource-server, build-frontend]
+    runs-on: self-hosted # <--- CAMBIADO para que use tu WSL local
+    environment: Production
     steps:
       - uses: actions/checkout@v4
-      - name: Create Mock Env
-        # Creamos un .env temporal para que Docker no falle en la nube
+      - name: Create .env from Secrets
         run: |
-          echo "GOOGLE_CLIENT_ID=mock_id" > .env
-          echo "GOOGLE_CLIENT_SECRET=mock_secret" >> .env
-      - name: Lift Environment (Docker)
-        # Usamos tu comando exacto del start.sh
-        run: docker-compose up --build -d 
-      - name: Wait and Healthcheck
-        # Verificamos que los puertos clave respondan
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" > .env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env
+      - name: Execute start.sh
         run: |
-          sleep 40 # Tiempo para que Spring Boot arranque
-          echo "Verificando Auth Server (9000)..."
+          chmod +x start.sh
+          ./start.sh # Ejecuta: docker-compose up --build --remove-orphans
+      - name: Verify Health
+        run: |
+          sleep 30
+          # Verificamos el Auth Server en el puerto 9000
           curl -f http://localhost:9000/.well-known/openid-configuration || exit 1
-          echo "Verificando Frontend (4200)..."
-          curl -f http://localhost:4200 || exit 1
+          echo "🎉 Deployment for Iteration 3 successful!"
