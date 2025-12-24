@@ -31,6 +31,6 @@ jobs:
             
             if [ $diff -ge 2 ]; then
               echo "Enviando comentario a la PR #$number..."
-              gh pr comment $number --body "⚠️ **Aviso:** Esta PR lleva abierta más de 2 minutos."
+              gh pr comment $number --body "⚠️ **Aviso:** Esta PR lleva abierta más de 6 horas."
             fi
           done
