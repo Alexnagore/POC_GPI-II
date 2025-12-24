@@ -1,0 +1,34 @@
+name: Check PR Age
+on:
+  schedule:
+    - cron: '0 * * * *'
+
+permissions:
+  pull-requests: write  # Crucial para que el bot pueda comentar
+
+jobs:
+  stale-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PRs and Comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Obtenemos PRs que NO tengan la etiqueta 'notified-6h' para no repetir
+          prs=$(gh pr list --state open --json number,createdAt,labels)
+          now=$(date +%s)
+          
+          echo "$prs" | jq -c '.[]' | while read -r pr; do
+            number=$(echo $pr | jq -r '.number')
+            created_at=$(echo $pr | jq -r '.createdAt')
+            
+            created_ts=$(date -d "$created_at" +%s)
+            diff=$(( (now - created_ts) / 3600 ))
+            
+            if [ $diff -ge 6 ] && [ "$has_label" = "false" ]; then
+              echo "Notificando PR #$number"
+              
+              gh pr comment $number --body "⚠️ Esta PR lleva abierta más de **6 horas**. Por favor, revisadla para evitar bloqueos. CC: @$(gh pr view $number --json author -q .author.login)"
+              
+            fi
+          done
