@@ -1,0 +1,33 @@
+name: CD - Deploy to Localhost
+
+on:
+  push:
+    branches: [ "main" ] # Se activa al hacer merge o push a main
+
+jobs:
+  deploy-local:
+    runs-on: self-hosted # Obligatorio: Ejecuta los comandos en tu máquina real
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env from Secrets
+        run: |
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || 'dummy-id' }}" > .env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET || 'dummy-secret' }}" >> .env
+
+      - name: Stop and Clean Current Containers
+        run: |
+          chmod +x stop.sh
+          ./stop.sh
+
+      - name: Build and Start Services
+        run: |
+          chmod +x start.sh
+          ./start.sh
+
+      - name: Verify Health
+        run: |
+          echo "Verificando que el sistema esté arriba..."
+          sleep 45
+          curl -f http://localhost:4200/ || exit 1
+          echo "🚀 ¡Despliegue automático en localhost completado!"
