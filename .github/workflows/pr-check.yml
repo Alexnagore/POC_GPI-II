@@ -2,18 +2,18 @@ name: Test PR Age (2 min)
 on:
   workflow_dispatch: 
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 * * * *'
 
 permissions:
   pull-requests: write
-  contents: read # Añadido para que el checkout funcione correctamente
+  contents: read
 
 jobs:
   check-and-comment:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # <--- ESTO ES LO QUE FALTABA
+        uses: actions/checkout@v4
 
       - name: Check PRs and Comment
         env:
@@ -30,12 +30,12 @@ jobs:
             created_at=$(echo $pr | jq -r '.createdAt')
             created_ts=$(date -d "$created_at" +%s)
             
-            diff=$(( (now - created_ts) / 60 ))
+            diff=$(( (now - created_ts) / 3600 ))
             
-            echo "PR #$number: $diff min abierta."
+            echo "PR #$number: $diff horas abierta."
             
-            if [ $diff -ge 2 ]; then
+            if [ $diff -ge 6 ]; then
               echo "Enviando comentario a la PR #$number..."
-              gh pr comment $number --body "⚠️ **Aviso:** Esta PR lleva abierta más de 2 minutos."
+              gh pr comment $number --body "⚠️ **Aviso:** Esta PR lleva abierta más de 6 horas."
             fi
           done
