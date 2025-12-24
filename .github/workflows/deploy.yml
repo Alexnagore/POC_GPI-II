@@ -3,6 +3,8 @@ name: CI/CD Pipeline - Project POC
 on:
   push:
     branches: [ "main" ] # Se activa al mergear ramas a main
+  pull_request:
+    branches: [ "main" ] # Se activa al crear PRs hacia main
 
 jobs:
   # ------------------------------------------------------------------
