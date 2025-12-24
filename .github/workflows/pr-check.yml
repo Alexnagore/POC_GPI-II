@@ -1,0 +1,36 @@
+name: Test PR Age (2 min)
+on:
+  workflow_dispatch: # Para que puedas darle al botón "Run" y probarlo ya
+  schedule:
+    - cron: '*/5 * * * *' # Se ejecuta cada 5 minutos
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-and-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PRs and Comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prs=$(gh pr list --state open --json number,createdAt)
+          now=$(date +%s)
+          
+          echo "Ejecutando comprobación a las: $(date)"
+          
+          echo "$prs" | jq -c '.[]' | while read -r pr; do
+            number=$(echo $pr | jq -r '.number')
+            created_at=$(echo $pr | jq -r '.createdAt')
+            created_ts=$(date -d "$created_at" +%s)
+            
+            diff=$(( (now - created_ts) / 60 ))
+            
+            echo "PR #$number: $diff min abierta."
+            
+            if [ $diff -ge 2 ]; then
+              echo "Enviando comentario a la PR #$number..."
+              gh pr comment $number --body "⚠️ **Aviso:** Esta PR lleva abierta más de 2 minutos."
+            fi
+          done
