@@ -126,3 +126,40 @@ jobs:
             **/target/*.jar
             ag-prueba-front/dist/
           retention-days: 90
+
+  # --- JOB 4: Trivy Scan ---
+  container-security:
+    runs-on: ubuntu-latest
+    needs: [archive-binaries] # Se ejecuta una vez tenemos los binarios listos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-bundle-${{ github.sha }}
+
+      - name: Build Local Image for Scanning
+        run: |
+          # Construimos la imagen localmente para que Trivy la analice
+          # Recordamos que el Dockerfile ya tiene el fix de la carpeta flags [cite: 2025-12-13]
+          docker build -t auth-server:test ./authorization-server
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'auth-server:test'
+          format: 'table'
+          exit-code: '1' # Hará que el pipeline falle si encuentra vulnerabilidades CRÍTICAS
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Export Trivy Report
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'auth-server:test'
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'

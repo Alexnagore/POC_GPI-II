@@ -4,7 +4,7 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: package-lock.json # Evitamos falsos positivos en archivos pesados
+        exclude: package-lock.json
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
