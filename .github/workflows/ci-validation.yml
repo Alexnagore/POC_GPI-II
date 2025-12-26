@@ -25,6 +25,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ag-prueba-front/package-lock.json
 
+      - name: Debug package.json
+        run: cat ag-prueba-front/package.json
+        
       - name: Angular Lint
         run: |
           cd ag-prueba-front
