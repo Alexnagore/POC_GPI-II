@@ -1,9 +1,8 @@
-name: SBOM Change Monitor
+name: SBOM & Binary Management
 
 on:
   pull_request:
     branches: [ "main" ]
-    # Se activa específicamente cuando se modifican archivos del SBOM
     paths:
       - 'ag-prueba-front/package-lock.json'
       - '**/pom.xml'
@@ -13,26 +12,21 @@ permissions:
   contents: read
 
 jobs:
+  # JOB 1: Tu lógica actual de Auditoría
   sbom-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Necesario para comparar cambios entre ramas
+          fetch-depth: 0
 
-      - name: Set up Environment (JDK 17 & Node 20)
+      - name: Set up Environment
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # --- TAREA: DETECTAR QUÉ PARTE DEL SBOM CAMBIÓ ---
       - name: Get Changed Files
         id: changed-files
         uses: tj-actions/changed-files@v45
@@ -41,32 +35,55 @@ jobs:
             ag-prueba-front/package-lock.json
             **/pom.xml
 
-      # --- TAREA: AUDITORÍA Y GENERACIÓN DE AVISO ---
       - name: Run SBOM Security Audit
         if: steps.changed-files.outputs.any_changed == 'true'
-        id: audit
         continue-on-error: true
         run: |
           echo "## 🛡️ Aviso: Modificación detectada en el SBOM" > sbom-report.md
-          echo "Se han detectado cambios en las librerías del proyecto. A continuación el análisis de riesgo:" >> sbom-report.md
-          
-          # Auditoría Frontend si cambió package-lock.json
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q "package-lock.json"; then
-            echo "### 📦 Frontend (Angular)" >> sbom-report.md
-            cd ag-prueba-front && npm audit >> ../sbom-report.md || echo "- ⚠️ Se encontraron vulnerabilidades en las nuevas dependencias de Front." >> ../sbom-report.md
+            cd ag-prueba-front && npm audit >> ../sbom-report.md || echo "- ⚠️ Riesgo en Front." >> ../sbom-report.md
             cd ..
           fi
-          
-          # Auditoría Backend si cambió algún pom.xml
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q "pom.xml"; then
-            echo "### ☕ Backend (Java)" >> sbom-report.md
-            cd authorization-server && ./mvnw dependency-check:check >> ../sbom-report.md || echo "- ⚠️ Riesgos detectados en el inventario de Backend." >> ../sbom-report.md
+            cd authorization-server && ./mvnw dependency-check:check >> ../sbom-report.md || echo "- ⚠️ Riesgo en Backend." >> ../sbom-report.md
           fi
 
-      # --- TAREA: PUBLICAR ANUNCIO EN LA PR ---
       - name: Post SBOM Notice to PR
         if: steps.changed-files.outputs.any_changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file sbom-report.md
+
+  # JOB 2: NUEVO - Almacenamiento y Versionado de Binarios
+  archive-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Build Environment (Java & Node)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Tarea: Compilación de binarios
+      - name: Build Projects
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body-file sbom-report.md
+          cd authorization-server && ./mvnw clean package -DskipTests
+          cd ../resource-server && ./mvnw clean package -DskipTests
+          cd ../ag-prueba-front && npm ci --legacy-peer-deps && npm run build -- --configuration=production
+
+      # Tarea: Versionado y Almacenamiento (Upload Artifact)
+      - name: Version and Store Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          # Se versiona con el SHA del commit para asegurar inmutabilidad
+          name: binary-bundle-${{ github.sha }}
+          path: |
+            **/target/*.jar
+            ag-prueba-front/dist/
+          retention-days: 90
