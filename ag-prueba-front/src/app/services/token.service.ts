@@ -4,14 +4,13 @@ import { environment } from '../../environments/environment';
 
 const ACCESS_TOKEN = 'access_token';
 const REFRESH_TOKEN = 'refresh_token';
-const CODE_VERIFIER= 'code_verifier';
+const CODE_VERIFIER = 'code_verifier';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class TokenService {
-
-  constructor() { }
+  constructor() {}
 
   setTokens(access_token: string, refresh_token: string): void {
     localStorage.removeItem(ACCESS_TOKEN);
@@ -43,7 +42,7 @@ export class TokenService {
     }
 
     const token = this.getAccessToken();
-    const payload = token!.split(".")[1];
+    const payload = token!.split('.')[1];
     const payloadDecoded = atob(payload);
     const values = JSON.parse(payloadDecoded);
     const roles = values.roles;
@@ -55,16 +54,22 @@ export class TokenService {
   }
 
   setVerifier(codeVerifier: string): void {
-    if(localStorage.getItem(CODE_VERIFIER)) {
+    if (localStorage.getItem(CODE_VERIFIER)) {
       this.deleteVerifier();
     }
-    const encrypted = CryptoJS.AES.encrypt(codeVerifier, environment.secret_pkce);
+    const encrypted = CryptoJS.AES.encrypt(
+      codeVerifier,
+      environment.secret_pkce,
+    );
     localStorage.setItem(CODE_VERIFIER, encrypted.toString());
   }
 
   getVerifier(): string {
     const encrypted = localStorage.getItem(CODE_VERIFIER);
-    const decrypted = CryptoJS.AES.decrypt(encrypted ?? '', environment.secret_pkce).toString(CryptoJS.enc.Utf8);
+    const decrypted = CryptoJS.AES.decrypt(
+      encrypted ?? '',
+      environment.secret_pkce,
+    ).toString(CryptoJS.enc.Utf8);
     return decrypted;
   }
 
