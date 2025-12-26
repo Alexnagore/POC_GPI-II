@@ -19,39 +19,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Environment
+      - name: Set up Environment (JDK 17 & Node 20)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Get Changed Files
-        id: changed-files
-        uses: tj-actions/changed-files@v45
-        with:
-          files: |
-            ag-prueba-front/package-lock.json
-            **/pom.xml
 
       - name: Run SBOM Security Audit
-        if: steps.changed-files.outputs.any_changed == 'true'
+        id: audit
         continue-on-error: true
         run: |
-          echo "## 🛡️ Aviso: Modificación detectada en el SBOM" > sbom-report.md
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q "package-lock.json"; then
-            cd ag-prueba-front && npm audit >> ../sbom-report.md || echo "- ⚠️ Riesgo en Front." >> ../sbom-report.md
-            cd ..
-          fi
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q "pom.xml"; then
-            cd authorization-server && ./mvnw dependency-check:check >> ../sbom-report.md || echo "- ⚠️ Riesgo en Backend." >> ../sbom-report.md
-          fi
+          echo "## 🛡️ Aviso: Modificación detectada en el SBOM" > pr-summary.md
+          echo "Se han detectado cambios en las librerías. El reporte completo está disponible en los **Artifacts** de esta ejecución." >> pr-summary.md
+          
+          # Auditoría Front: Solo capturamos el resumen final (últimas 20 líneas)
+          echo "### 📦 Resumen Frontend" >> pr-summary.md
+          cd ag-prueba-front && npm audit | tail -n 20 >> ../pr-summary.md || echo "- ⚠️ Vulnerabilidades detectadas en Front." >> ../pr-summary.md
+          cd ..
 
+          # Auditoría Back: Ejecutamos y avisamos del resultado
+          echo "### ☕ Resumen Backend" >> pr-summary.md
+          cd authorization-server && ./mvnw dependency-check:check > full-log-back.txt || echo "- ⚠️ Se han detectado riesgos en el SBOM de Java." >> ../pr-summary.md
+          
+          # Aseguramos que el mensaje para la PR no exceda el límite técnico
+          head -c 60000 pr-summary.md > final-comment.md
+          echo "... (Reporte resumido para la PR)" >> final-comment.md
+
+      # Tarea: Guardar el reporte completo como evidencia (Versionado)
+      - name: Upload Full Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-security-reports-${{ github.sha }}
+          path: "**/target/dependency-check-report.html"
+
+      # Tarea: Publicar el aviso resumido en la PR
       - name: Post SBOM Notice to PR
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr comment ${{ github.event.pull_request.number }} --body-file sbom-report.md
+        run: |
+          if [ -f final-comment.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file final-comment.md
+          fi
 
   archive-binaries:
     runs-on: ubuntu-latest
