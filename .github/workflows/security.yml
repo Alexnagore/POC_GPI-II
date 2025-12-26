@@ -12,7 +12,6 @@ permissions:
   contents: read
 
 jobs:
-  # JOB 1: Tu lógica actual de Auditoría
   sbom-audit:
     runs-on: ubuntu-latest
     steps:
@@ -54,7 +53,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh pr comment ${{ github.event.pull_request.number }} --body-file sbom-report.md
 
-  # JOB 2: NUEVO - Almacenamiento y Versionado de Binarios
   archive-binaries:
     runs-on: ubuntu-latest
     steps:
