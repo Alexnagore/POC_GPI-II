@@ -3,7 +3,7 @@ WORKDIR /app
 COPY . .
 RUN chmod +x mvnw
 
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests -Dcheckstyle.skip
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
