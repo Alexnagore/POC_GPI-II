@@ -3,10 +3,7 @@ name: Security
 on:
   pull_request:
     branches: [ "main" ]
-    paths:
-      - 'ag-prueba-front/package-lock.json'
-      - '**/pom.xml'
-
+    
 permissions:
   pull-requests: write
   contents: read
