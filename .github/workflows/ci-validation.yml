@@ -11,6 +11,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven' # Cache para acelerar futuras descargas de dependencias
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ag-prueba-front/package-lock.json
+
+      - name: Angular Lint
+        run: |
+          cd ag-prueba-front
+          npm ci --legacy-peer-deps # Instalación limpia usando el lockfile
+          npm run lint
+
+      - name: Java Static Analysis (Auth Server)
+        run: |
+          cd authorization-server
+          chmod +x mvnw
+          ./mvnw checkstyle:check spotbugs:check
+
+      - name: Java Static Analysis (Resource Server)
+        run: |
+          cd resource-server
+          chmod +x mvnw
+          ./mvnw checkstyle:check spotbugs:check
+
       - name: Cleanup Environment
         run: |
           docker compose down -v --remove-orphans
