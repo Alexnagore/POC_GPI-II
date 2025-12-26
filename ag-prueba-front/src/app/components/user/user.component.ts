@@ -6,23 +6,21 @@ import { ResourceService } from '../../services/resource.service';
   standalone: true,
   imports: [],
   templateUrl: './user.component.html',
-  styleUrl: './user.component.scss'
+  styleUrl: './user.component.scss',
 })
 export class UserComponent implements OnInit {
-
   message = '';
 
-  constructor(
-    private resourceService: ResourceService
-  ) { }
+  constructor(private resourceService: ResourceService) {}
 
   ngOnInit(): void {
-    this.resourceService.user().subscribe(data => {
-      this.message = data.message;
-    },
-      err => {
+    this.resourceService.user().subscribe(
+      (data) => {
+        this.message = data.message;
+      },
+      (err) => {
         console.log(err);
-      });
+      },
+    );
   }
-
 }

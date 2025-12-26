@@ -6,23 +6,21 @@ import { TokenService } from '../../services/token.service';
 @Component({
   selector: 'app-authorized',
   templateUrl: './authorized.component.html',
-  styleUrl: './authorized.component.scss'
+  styleUrl: './authorized.component.scss',
 })
 export class AuthorizedComponent implements OnInit {
-
   code = '';
-
 
   constructor(
     private activatedRoute: ActivatedRoute,
     private authService: AuthService,
     private tokenService: TokenService,
-    private router: Router
-  ) { }
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
-    this.activatedRoute.queryParams.subscribe(data => {
-      this.code = data["code"];
+    this.activatedRoute.queryParams.subscribe((data) => {
+      this.code = data['code'];
       const codeVerifier = this.tokenService.getVerifier();
       this.tokenService.deleteVerifier();
       this.getToken(this.code, codeVerifier);
@@ -31,13 +29,13 @@ export class AuthorizedComponent implements OnInit {
 
   getToken(code: string, codeVerifier: string): void {
     this.authService.getToken(code, codeVerifier).subscribe(
-      data => {
+      (data) => {
         this.tokenService.setTokens(data.access_token, data.refresh_token);
         this.router.navigate(['']);
       },
-      err => {
+      (err) => {
         console.log(err);
-      })
+      },
+    );
   }
-
 }

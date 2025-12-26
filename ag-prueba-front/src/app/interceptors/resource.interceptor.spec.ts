@@ -4,7 +4,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { resourceInterceptor } from './resource.interceptor';
 
 describe('resourceInterceptor', () => {
-  const interceptor: HttpInterceptorFn = (req, next) => 
+  const interceptor: HttpInterceptorFn = (req, next) =>
     TestBed.runInInjectionContext(() => resourceInterceptor(req, next));
 
   beforeEach(() => {

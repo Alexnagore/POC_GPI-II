@@ -14,14 +14,12 @@ import { ResourceInterceptor } from './interceptors/resource.interceptor';
     AppComponent,
     HomeComponent,
     AuthorizedComponent,
-    MenuComponent
+    MenuComponent,
   ],
-  imports: [
-    HttpClientModule,
-    BrowserModule,
-    AppRoutingModule
+  imports: [HttpClientModule, BrowserModule, AppRoutingModule],
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: ResourceInterceptor, multi: true },
   ],
-  providers: [{provide: HTTP_INTERCEPTORS, useClass: ResourceInterceptor, multi: true}],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}

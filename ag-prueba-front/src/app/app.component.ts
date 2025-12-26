@@ -6,23 +6,25 @@ import { MenuComponent } from './components/menu/menu.component';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit {
   title = 'ag-prueba-front';
-  
+
   @ViewChild('menu') menu: MenuComponent | undefined;
 
-  constructor(
-    private router: Router
-  ) {}
+  constructor(private router: Router) {}
 
   ngOnInit(): void {
-    this.router.events.pipe(
-      filter((event: RouterEvent): event is NavigationEnd => event instanceof NavigationEnd)
-    ).subscribe(() => {
-      this.menu?.getLogged();
-    });
+    this.router.events
+      .pipe(
+        filter(
+          (event: RouterEvent): event is NavigationEnd =>
+            event instanceof NavigationEnd,
+        ),
+      )
+      .subscribe(() => {
+        this.menu?.getLogged();
+      });
   }
-  
 }
