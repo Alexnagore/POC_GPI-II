@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Project POC
+name: CI Pipeline - Project POC
 
 on:
   pull_request:
