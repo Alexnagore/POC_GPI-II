@@ -1,1 +1,1 @@
-aws_access_key_id = 'AKIAIMNO789ABCDEF0a12'
+aws_access_key_id = 'AKIAIMNO789ABCDEF012'
