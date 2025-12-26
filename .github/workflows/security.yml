@@ -3,21 +3,21 @@ name: Security
 on:
   pull_request:
     branches: [ "main" ]
-    
+
 permissions:
   pull-requests: write
   contents: read
 
 jobs:
-  sbom-audit:
+  # --- JOB 1: ESCANEO DE SECRETOS (Independiente) ---
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # --- NUEVO: ESCANEO DE SECRETOS (Detección de claves) ---
-      - name: Set up Python (for detect-secrets)
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -26,17 +26,28 @@ jobs:
         id: secrets
         run: |
           pip install detect-secrets
-          echo "### 🔍 Auditoría de Secretos" > secrets-report.md
-          # Escaneamos comparando con el baseline que subiste al repo
+          # Escaneo contra el baseline. Si detecta algo nuevo, el exit code será distinto de 0.
           if ! detect-secrets scan --baseline .secrets.baseline > potential_secrets.json; then
-            echo "- ❌ **ERROR:** Se han detectado posibles secretos nuevos que no están en el baseline." >> secrets-report.md
-            echo "Por favor, revísalos o actualiza el baseline localmente." >> secrets-report.md
+            echo "❌ ERROR: Se han detectado posibles secretos nuevos."
             exit 1
-          else
-            echo "- ✅ No se han detectado secretos nuevos fuera del baseline." >> secrets-report.md
           fi
 
-      # --- Auditoría de Librerías (SBOM) ---
+      - name: Upload Secret Scan Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: potential-secrets-${{ github.sha }}
+          path: potential_secrets.json
+
+  # --- JOB 2: AUDITORÍA DE LIBRERÍAS (SBOM) ---
+  sbom-audit:
+    runs-on: ubuntu-latest
+    # Este job puede correr en paralelo con secret-scan para ahorrar tiempo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Environment (JDK 17 & Node 20)
         uses: actions/setup-java@v4
         with:
@@ -53,33 +64,25 @@ jobs:
 
       - name: Run SBOM Security Audit
         id: audit
-        continue-on-error: true # Permite generar el reporte aunque haya vulnerabilidades
+        continue-on-error: true
         run: |
-          echo "## 🛡️ Aviso: Reporte de Seguridad Consolidado" > pr-summary.md
-          cat secrets-report.md >> pr-summary.md
-          echo -e "\n---\n" >> pr-summary.md
-          echo "### 📦 Resumen de Dependencias (SBOM)" >> pr-summary.md
+          echo "## 🛡️ Reporte de Dependencias (SBOM)" > pr-summary.md
           
-          # Auditoría Front
-          echo "#### Frontend" >> pr-summary.md
+          echo "### 📦 Frontend" >> pr-summary.md
           (cd ag-prueba-front && npm audit | tail -n 15) >> pr-summary.md || echo "- ⚠️ Vulnerabilidades detectadas en Front." >> pr-summary.md
 
-          # Auditoría Back
-          echo -e "\n#### Backend" >> pr-summary.md
-          (cd authorization-server && ./mvnw dependency-check:check -Dcheckstyle.skip -DskipTests > full-log-back.txt) || echo "- ⚠️ Se han detectado riesgos en el SBOM de Java." >> pr-summary.md
+          echo -e "\n### ☕ Backend" >> pr-summary.md
+          # Aplicamos -Dcheckstyle.skip para evitar bloqueos por formato [cite: 2025-12-13]
+          (cd authorization-server && ./mvnw dependency-check:check -Dcheckstyle.skip -DskipTests > full-log-back.txt) || echo "- ⚠️ Riesgos detectados en Java." >> pr-summary.md
           
-          # Preparación del comentario final
           head -c 60000 pr-summary.md > final-comment.md
-          echo -e "\n\n> El reporte completo está disponible en los **Artifacts**." >> final-comment.md
 
-      - name: Upload Full Security Reports
+      - name: Upload SBOM Reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: full-security-reports-${{ github.sha }}
-          path: |
-            **/target/dependency-check-report.html
-            potential_secrets.json
+          name: sbom-reports-${{ github.sha }}
+          path: "**/target/dependency-check-report.html"
 
       - name: Post Security Notice to PR
         if: always() && github.event_name == 'pull_request'
@@ -90,12 +93,13 @@ jobs:
             gh pr comment ${{ github.event.pull_request.number }} --body-file final-comment.md
           fi
 
+  # --- JOB 3: COMPILACIÓN (Depende de los anteriores) ---
   archive-binaries:
     runs-on: ubuntu-latest
-    needs: sbom-audit
+    needs: [secret-scan, sbom-audit] # Solo compila si los otros jobs terminan
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Build Environment (Java & Node)
+      - name: Setup Build Environment
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -109,6 +113,16 @@ jobs:
 
       - name: Build Projects
         run: |
+          # Mantenemos el skip de Checkstyle para asegurar la Disponibilidad del binario [cite: 2025-12-13]
           (cd authorization-server && ./mvnw clean package -DskipTests -Dcheckstyle.skip)
           (cd resource-server && ./mvnw clean package -DskipTests -Dcheckstyle.skip)
-          (cd ag-prueba-front && npm ci --legacy-peer-deps
+          (cd ag-prueba-front && npm ci --legacy-peer-deps && npm run build -- --configuration=production)
+
+      - name: Store Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-bundle-${{ github.sha }}
+          path: |
+            **/target/*.jar
+            ag-prueba-front/dist/
+          retention-days: 90
