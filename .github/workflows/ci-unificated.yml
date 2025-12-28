@@ -1,0 +1,138 @@
+name: CI Unified Pipeline - Quality & Security
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  # --- ETAPA 1: ESCANEOS PREVENTIVOS ---
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Run Secret Scan
+        run: |
+          pip install detect-secrets
+          if ! detect-secrets scan --baseline .secrets.baseline > potential_secrets.json; then
+            echo "❌ ERROR: Se han detectado posibles secretos nuevos."
+            exit 1
+          fi
+
+  # --- ETAPA 2: VALIDACIÓN TÉCNICA Y AUDITORÍA ---
+  validation-and-audit:
+    name: Tests, Lint & SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Environment (JDK 17 & Node 20)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ag-prueba-front/package-lock.json
+
+      - name: Security Audit (SCA & SBOM)
+        continue-on-error: true
+        run: |
+          echo "## 🛡️ Reporte de Dependencias" > pr-summary.md
+          cd ag-prueba-front && npm audit >> ../pr-summary.md || echo "Vulnerabilidades en Front"
+          cd ../authorization-server && ./mvnw dependency-check:check -Dcheckstyle.skip -DskipTests >> ../pr-summary.md || echo "Riesgos en Back"
+
+      - name: Unit Tests & Coverage
+        continue-on-error: true
+        run: |
+          cd ag-prueba-front && npm ci --legacy-peer-deps && npm run test:ci
+          cd ../authorization-server && ./mvnw test
+          cd ../resource-server && ./mvnw test
+
+      - name: Static Analysis (Lint & Checkstyle)
+        continue-on-error: true
+        run: |
+          cd ag-prueba-front && npm run lint
+          cd ../authorization-server && ./mvnw checkstyle:check spotbugs:check
+          cd ../resource-server && ./mvnw checkstyle:check spotbugs:check
+
+      - name: Post Security Notice to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr-summary.md || echo "No se pudo postear el comentario"
+
+  # --- ETAPA 3: CONSTRUCCIÓN DE BINARIOS ---
+  build-and-archive:
+    name: Packaging & Artifacts
+    needs: [secret-scan, validation-and-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Projects
+        run: |
+          (cd authorization-server && ./mvnw clean package -DskipTests -Dcheckstyle.skip)
+          (cd resource-server && ./mvnw clean package -DskipTests -Dcheckstyle.skip)
+          (cd ag-prueba-front && npm ci --legacy-peer-deps && npm run build -- --configuration=production)
+
+      - name: Store Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-bundle-${{ github.sha }}
+          path: |
+            **/target/*.jar
+            ag-prueba-front/dist/
+
+  # --- ETAPA 4: VERIFICACIÓN DE INTEGRACIÓN Y SEGURIDAD ---
+  integration-and-security:
+    name: Docker & Trivy Scan
+    needs: [build-and-archive]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-bundle-${{ github.sha }}
+
+      - name: Create .env and Start Services
+        run: |
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || 'dummy-id' }}" > .env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET || 'dummy-secret' }}" >> .env
+          chmod +x start.sh && ./start.sh
+
+      - name: Verify Services Health
+        run: |
+          sleep 60
+          curl -f http://localhost:4200/ || exit 1
+
+      - name: Container Security (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'auth-server:latest' # Nombre generado por start.sh/docker-compose
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
