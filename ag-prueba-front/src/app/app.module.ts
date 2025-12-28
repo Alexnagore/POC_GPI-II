@@ -1,5 +1,7 @@
-import { NgModule } from '@angular/core';
+import { NgModule, ErrorHandler, APP_INITIALIZER } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { Router } from '@angular/router'; // Importante para el rastreo de rutas
+import * as Sentry from '@sentry/angular';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -19,6 +21,24 @@ import { ResourceInterceptor } from './interceptors/resource.interceptor';
   imports: [HttpClientModule, BrowserModule, AppRoutingModule],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: ResourceInterceptor, multi: true },
+
+    // --- NUEVOS PROVIDERS PARA OKR 5 (OBSERVABILIDAD) ---
+    {
+      provide: ErrorHandler,
+      useValue: Sentry.createErrorHandler({
+        showDialog: false, // Cámbialo a true si quieres que el usuario pueda enviar un reporte al fallar
+      }),
+    },
+    {
+      provide: Sentry.TraceService,
+      deps: [Router],
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: () => () => {},
+      deps: [Sentry.TraceService],
+      multi: true,
+    },
   ],
   bootstrap: [AppComponent],
 })
